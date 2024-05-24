@@ -285,7 +285,7 @@ suite('Signal.Computed', function () {
         setTimeout(() => {
             try {
                 assert(wb.deref() == null, `wb.deref() == null`);
-                assert.strictEqual([...signals.a.slots()].length, 0);
+                assert.strictEqual([...signals.a.sinks()].length, 0);
                 done();
             } catch (e) {
                 done(e);

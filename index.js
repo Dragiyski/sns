@@ -1,6 +1,6 @@
 const weakRefMap = new WeakMap();
 const symbols = {
-    slots: Symbol('slots'),
+    sinks: Symbol('sinks'),
     notify: Symbol('notify'),
     update: Symbol('update'),
     link: Symbol('link'),
@@ -9,7 +9,7 @@ const symbols = {
 const computing = new Set();
 
 export default class Signal {
-    #slots = new Set();
+    #sinks = new Set();
 
     constructor() {
         if (!isSignalTarget(new.target)) {
@@ -18,40 +18,49 @@ export default class Signal {
         weakRefMap.set(this, new WeakRef(this));
     }
 
-    * [symbols.slots]() {
+    * [symbols.sinks]() {
         const released = new Set();
-        for (const key of this.#slots.keys()) {
-            const slot = key.deref();
-            if (slot != null) {
-                yield slot;
+        for (const key of this.#sinks.keys()) {
+            const sink = key.deref();
+            if (sink != null) {
+                yield sink;
             } else {
                 released.add(key);
             }
         }
         for (const key of released) {
-            this.#slots.delete(key);
+            this.#sinks.delete(key);
         }
     }
 
     [symbols.notify]() {
-        for (const slot of this[symbols.slots]()) {
-            slot[symbols.notify]();
+        for (const sink of this[symbols.sinks]()) {
+            sink[symbols.notify]();
         }
     }
 
-    [symbols.link](slot) {
-        this.#slots.add(weakRefMap.get(slot));
+    [symbols.link](sink) {
+        this.#sinks.add(weakRefMap.get(sink));
     }
 
-    [symbols.unlink](slot) {
-        const value = weakRefMap.get(slot);
+    [symbols.unlink](sink) {
+        const value = weakRefMap.get(sink);
         if (value != null) {
-            this.#slots.delete(value);
+            this.#sinks.delete(value);
         }
     }
 
-    slots() {
-        return this[symbols.slots]();
+    sinks() {
+        return this[symbols.sinks]();
+    }
+
+    static unwrapper(callback) {
+        if (typeof callback !== 'function') {
+            throw new TypeError('Invalid parameter 1: not a function');
+        }
+        return function (...signals) {
+            return Function.prototype.apply.call(callback, this, signals.map(signal => signal.get()));
+        };
     }
 }
 
@@ -210,7 +219,7 @@ function isSignalTarget(target) {
     return false;
 }
 
-export class Slot {
+export class Sink {
     #signals;
     #callback;
     #signalMap = new Map();
